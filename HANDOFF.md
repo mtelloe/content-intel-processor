@@ -43,11 +43,20 @@ https://automatizaciones-content-intel-processor.hjbrvj.easypanel.host
 
 ### Para redeploy futuro (si cambias código)
 ```bash
+# En el servidor:
 ssh -i ~/.ssh/deploy_key root@hjbrvj.easypanel.host
-# En el server:
-docker service rm automatizaciones_content-intel-processor
-# Luego ejecutar el script de deploy completo (ver historial de sesión)
+
+TMPDIR=$(mktemp -d)
+git clone https://github.com/mtelloe/content-intel-processor.git $TMPDIR/app
+cd $TMPDIR/app && docker build -t automatizaciones_content-intel-processor:latest .
+docker service update --image automatizaciones_content-intel-processor:latest automatizaciones_content-intel-processor
+rm -rf $TMPDIR
 ```
+
+### Notas de producción
+- WhatsApp instancia: `+34 682 355 001` (maria-personal en Evolution API)
+- Cookies Instagram: `/etc/easypanel/projects/automatizaciones/content-intel-processor/cookies/instagram.txt` — renovar si dejan de funcionar
+- GROQ y Anthropic keys rotan — si da 401, generar nuevas en console.groq.com y console.anthropic.com
 
 ---
 
