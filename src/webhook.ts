@@ -12,8 +12,11 @@ const carouselBuffer = new Map<string, {
   timeout: ReturnType<typeof setTimeout>
 }>()
 
-function isUrl(text: string): boolean {
-  return /^https?:\/\//i.test(text.trim())
+const VIDEO_URL_RE = /https?:\/\/[^\s]*(instagram\.com|youtube\.com|youtu\.be|tiktok\.com|twitter\.com|x\.com)[^\s]*/i
+
+function extractVideoUrl(text: string): string | null {
+  const match = text.match(VIDEO_URL_RE)
+  return match ? match[0] : null
 }
 
 async function fetchBase64FromEvolution(message: unknown): Promise<string | undefined> {
@@ -75,7 +78,8 @@ export function createWebhookRouter(): Router {
 
     if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
       const text: string = data?.message?.conversation ?? data?.message?.extendedTextMessage?.text ?? ''
-      if (!isUrl(text)) {
+      const videoUrl = extractVideoUrl(text)
+      if (!videoUrl) {
         console.log('[proxy] text msg, forwarding to personal agent:', text.slice(0, 60))
         fetch(PERSONAL_AGENT_URL, {
           method: 'POST',
@@ -85,8 +89,8 @@ export function createWebhookRouter(): Router {
           .catch(e => console.error('[proxy] error:', e.message))
         return
       }
-      console.log('[proxy] video URL detected:', text.slice(0, 80))
-      processRequest({ messageId, remoteJid, inputType: 'video_url', sourceUrl: text.trim() })
+      console.log('[proxy] video URL detected:', videoUrl.slice(0, 80))
+      processRequest({ messageId, remoteJid, inputType: 'video_url', sourceUrl: videoUrl })
 
     } else if (messageType === 'imageMessage') {
       const inlineBase64: string | undefined = data?.base64 ?? data?.message?.imageMessage?.base64

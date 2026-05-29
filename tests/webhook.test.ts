@@ -16,7 +16,7 @@ app.use('/webhook', createWebhookRouter())
 describe('POST /webhook/whatsapp', () => {
   beforeEach(() => vi.mocked(processRequest).mockClear())
 
-  it('responde 200 a mensajes válidos con URL', async () => {
+  it('procesa mensaje que es solo URL de vídeo', async () => {
     const payload = {
       event: 'messages.upsert',
       data: {
@@ -31,6 +31,24 @@ describe('POST /webhook/whatsapp', () => {
       messageId: 'MSG001',
       inputType: 'video_url',
       sourceUrl: 'https://www.instagram.com/reel/ABC/',
+    }))
+  })
+
+  it('extrae URL de vídeo de mensaje con texto adicional', async () => {
+    const payload = {
+      event: 'messages.upsert',
+      data: {
+        key: { remoteJid: '34612345678@s.whatsapp.net', fromMe: false, id: 'MSG003' },
+        messageType: 'conversation',
+        message: { conversation: 'analiza este reel https://www.instagram.com/reel/XYZ/ porfa' },
+      }
+    }
+    const res = await request(app).post('/webhook/whatsapp').send(payload)
+    expect(res.status).toBe(200)
+    expect(processRequest).toHaveBeenCalledWith(expect.objectContaining({
+      messageId: 'MSG003',
+      inputType: 'video_url',
+      sourceUrl: 'https://www.instagram.com/reel/XYZ/',
     }))
   })
 
