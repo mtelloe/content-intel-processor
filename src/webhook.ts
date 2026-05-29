@@ -1,6 +1,10 @@
 import { Router } from 'express'
 import { processRequest } from './processor.js'
 
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL ?? ''
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY ?? ''
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE ?? ''
+
 const carouselBuffer = new Map<string, {
   images: string[]
   messageId: string
@@ -9,6 +13,46 @@ const carouselBuffer = new Map<string, {
 
 function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim())
+}
+
+async function fetchBase64FromEvolution(message: unknown): Promise<string | undefined> {
+  try {
+    const res = await fetch(
+      `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${EVOLUTION_INSTANCE}`,
+      {
+        method: 'POST',
+        headers: { 'apikey': EVOLUTION_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      }
+    )
+    if (!res.ok) return undefined
+    const json = await res.json() as { base64?: string }
+    return json.base64
+  } catch {
+    return undefined
+  }
+}
+
+function scheduleCarousel(remoteJid: string, base64: string, messageId: string) {
+  const existing = carouselBuffer.get(remoteJid)
+  if (existing) {
+    clearTimeout(existing.timeout)
+    existing.images.push(base64)
+    existing.timeout = setTimeout(() => {
+      carouselBuffer.delete(remoteJid)
+      const inputType = existing.images.length > 1 ? 'carousel' : 'image'
+      processRequest({ messageId: existing.messageId, remoteJid, inputType, base64Images: existing.images })
+    }, 15_000)
+  } else {
+    const timeout = setTimeout(() => {
+      const entry = carouselBuffer.get(remoteJid)
+      if (!entry) return
+      carouselBuffer.delete(remoteJid)
+      const inputType = entry.images.length > 1 ? 'carousel' : 'image'
+      processRequest({ messageId: entry.messageId, remoteJid, inputType, base64Images: entry.images })
+    }, 15_000)
+    carouselBuffer.set(remoteJid, { images: [base64], messageId, timeout })
+  }
 }
 
 export function createWebhookRouter(): Router {
@@ -34,27 +78,16 @@ export function createWebhookRouter(): Router {
       processRequest({ messageId, remoteJid, inputType: 'video_url', sourceUrl: text.trim() })
 
     } else if (messageType === 'imageMessage') {
-      const base64: string | undefined = data?.base64 ?? data?.message?.imageMessage?.base64
-      if (!base64) return
+      const inlineBase64: string | undefined = data?.base64 ?? data?.message?.imageMessage?.base64
 
-      const existing = carouselBuffer.get(remoteJid)
-      if (existing) {
-        clearTimeout(existing.timeout)
-        existing.images.push(base64)
-        existing.timeout = setTimeout(() => {
-          carouselBuffer.delete(remoteJid)
-          const inputType = existing.images.length > 1 ? 'carousel' : 'image'
-          processRequest({ messageId: existing.messageId, remoteJid, inputType, base64Images: existing.images })
-        }, 15_000)
+      if (inlineBase64) {
+        scheduleCarousel(remoteJid, inlineBase64, messageId)
       } else {
-        const timeout = setTimeout(() => {
-          const entry = carouselBuffer.get(remoteJid)
-          if (!entry) return
-          carouselBuffer.delete(remoteJid)
-          const inputType = entry.images.length > 1 ? 'carousel' : 'image'
-          processRequest({ messageId: entry.messageId, remoteJid, inputType, base64Images: entry.images })
-        }, 15_000)
-        carouselBuffer.set(remoteJid, { images: [base64], messageId, timeout })
+        // webhookBase64 not enabled — download from Evolution API
+        fetchBase64FromEvolution(data?.message).then(base64 => {
+          if (!base64) return
+          scheduleCarousel(remoteJid, base64, messageId)
+        })
       }
     }
   })
