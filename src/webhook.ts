@@ -4,6 +4,7 @@ import { processRequest } from './processor.js'
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL ?? ''
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY ?? ''
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE ?? ''
+const PERSONAL_AGENT_URL = process.env.PERSONAL_AGENT_URL ?? 'https://personal-agent-backend.hjbrvj.easypanel.host/webhook'
 
 const carouselBuffer = new Map<string, {
   images: string[]
@@ -74,7 +75,14 @@ export function createWebhookRouter(): Router {
 
     if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
       const text: string = data?.message?.conversation ?? data?.message?.extendedTextMessage?.text ?? ''
-      if (!isUrl(text)) return
+      if (!isUrl(text)) {
+        fetch(PERSONAL_AGENT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }).catch(() => {})
+        return
+      }
       processRequest({ messageId, remoteJid, inputType: 'video_url', sourceUrl: text.trim() })
 
     } else if (messageType === 'imageMessage') {
