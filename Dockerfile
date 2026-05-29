@@ -13,9 +13,13 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-COPY dist/ ./dist/
+COPY tsconfig.json ./
+COPY src/ ./src/
+RUN npm run build
+
+RUN npm prune --omit=dev
 
 EXPOSE 3000
 CMD ["node", "dist/index.js"]
