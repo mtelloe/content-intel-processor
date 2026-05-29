@@ -76,13 +76,16 @@ export function createWebhookRouter(): Router {
     if (messageType === 'conversation' || messageType === 'extendedTextMessage') {
       const text: string = data?.message?.conversation ?? data?.message?.extendedTextMessage?.text ?? ''
       if (!isUrl(text)) {
+        console.log('[proxy] text msg, forwarding to personal agent:', text.slice(0, 60))
         fetch(PERSONAL_AGENT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
-        }).catch(() => {})
+        }).then(r => console.log('[proxy] personal agent responded:', r.status))
+          .catch(e => console.error('[proxy] error:', e.message))
         return
       }
+      console.log('[proxy] video URL detected:', text.slice(0, 80))
       processRequest({ messageId, remoteJid, inputType: 'video_url', sourceUrl: text.trim() })
 
     } else if (messageType === 'imageMessage') {
