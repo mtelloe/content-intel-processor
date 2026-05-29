@@ -21,9 +21,17 @@ describe('detectPlatform', () => {
 
 describe('buildYtdlpArgs', () => {
   it('incluye formato de solo audio', () => {
-    const args = buildYtdlpArgs('https://example.com', '/tmp/out.mp3')
+    const args = buildYtdlpArgs('https://example.com', '/tmp/out.mp3', 'unknown')
     expect(args).toContain('-x')
     expect(args).toContain('--audio-format')
     expect(args).toContain('mp3')
+  })
+  it('añade --cookies para instagram', () => {
+    const args = buildYtdlpArgs('https://www.instagram.com/reel/ABC/', '/tmp/out.mp3', 'instagram')
+    expect(args).toContain('--cookies')
+  })
+  it('no añade --cookies para youtube', () => {
+    const args = buildYtdlpArgs('https://youtube.com/watch?v=x', '/tmp/out.mp3', 'youtube')
+    expect(args).not.toContain('--cookies')
   })
 })

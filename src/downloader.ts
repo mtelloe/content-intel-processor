@@ -14,8 +14,10 @@ export function detectPlatform(url: string): Platform {
   return 'unknown'
 }
 
-export function buildYtdlpArgs(url: string, outputPath: string): string[] {
-  return [
+const COOKIES_FILE = process.env.INSTAGRAM_COOKIES_FILE ?? '/app/cookies/instagram.txt'
+
+export function buildYtdlpArgs(url: string, outputPath: string, platform: Platform): string[] {
+  const args = [
     url,
     '-x',
     '--audio-format', 'mp3',
@@ -24,6 +26,10 @@ export function buildYtdlpArgs(url: string, outputPath: string): string[] {
     '--max-filesize', '50m',
     '-o', outputPath,
   ]
+  if (platform === 'instagram') {
+    args.push('--cookies', COOKIES_FILE)
+  }
+  return args
 }
 
 export async function downloadAudio(url: string): Promise<{ path: string; platform: Platform }> {
@@ -31,7 +37,7 @@ export async function downloadAudio(url: string): Promise<{ path: string; platfo
   const outputPath = join(tmpdir(), `${randomUUID()}.mp3`)
 
   try {
-    await execa('yt-dlp', buildYtdlpArgs(url, outputPath), { timeout: 120_000 })
+    await execa('yt-dlp', buildYtdlpArgs(url, outputPath, platform), { timeout: 120_000 })
     return { path: outputPath, platform }
   } catch (err) {
     throw new Error(`yt-dlp failed for ${url}: ${(err as Error).message}`)
